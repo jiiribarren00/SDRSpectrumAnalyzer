@@ -22,7 +22,7 @@ spec_min_freq = 140*1e6
 spec_max_freq = 150*1e6
 # Máxima frecuencia registrada en un espectro / Hz
 
-mes_samplerate = 3.2*1e6 #2.4*1e6
+mes_samplerate = 2.4*1e6 #2.4*1e6
 # Frecuencia de muestreo de la señal de radio o medio bandwith / Hz
 mes_sample_num = 2048
 # Numero de muestras de señal de radio a tomar en una medida
@@ -74,7 +74,7 @@ while exp_time-(time.time()-TIME[0]) > 0:
 	spec_freq_range = np.arange(spec_min_freq, spec_max_freq, mes_samplerate/2)
 	# Creamos un rango de frecuencias en el que se tomaran las medidas
 	for j in range(spec_repetitions):
-		print(f"{i+1}th spectrum {j+1}th repetition - scanning")
+		print(f"{i+1}th spectrum {j+1}th repetition - scanning.")
 		for mes_center_freq in spec_freq_range:
 			sdr.center_freq = mes_center_freq
 			# Configuramos la frecuencia central de la medida    
