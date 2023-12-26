@@ -24,6 +24,7 @@ def animate(i):
 	ax.set_ylabel(r'Relative Power $\mathrm{dB}$')
 	ax.set_xlabel(r'Frequency $\mathrm{MHz}$')
 	ax.set_title(filename)
+	plt.tight_layout()
 
 # Create the animation
 if len(data.files) == 3:
