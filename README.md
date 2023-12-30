@@ -64,6 +64,7 @@ frequencies and a timelapsed psd for specified portion of VHF spectrum. The othe
 * In a close future
 
 	- [ ] Study samples, gain, windowing functions and possible optimizations.
+ 	- [ ] Implementation of pyFFT library which is fastar than np.fft.
 	- [ ] Implement automatic background removal.
 
 * Goals
