@@ -2,7 +2,7 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sn
+#import seaborn as sn
 
 
 def closest_time(x, v):
@@ -94,7 +94,7 @@ while Option != 8:
            horizontalalignment='center',
            verticalalignment='center',
            transform=ax.transAxes)
-      ax.set_ylabel(r'Relative Power / $\mathrm{dB}$')
+      ax.set_ylabel(r'Relative Power / $\mathrm{dB/Hz}$')
       ax.set_xlabel(r'Frequency / $\mathrm{MHz}$')
       ax.set_title(metadata["filename"])
       plt.tight_layout()
@@ -110,8 +110,8 @@ while Option != 8:
          ax.clear()
          ax.fill_between(frequencies / 1e6, data.iloc[i,:].values)
          ax.text(0.5,0.1,data.index.values[i], horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
-         ax.set_ylim(0, data.values.max())
-         ax.set_ylabel(r'Relative Power $\mathrm{dB}$')
+         ax.set_ylim(data.values.min()*1.05, data.values.max()*0.9)
+         ax.set_ylabel(r'Relative Power $\mathrm{dB/Hz}$')
          ax.set_xlabel(r'Frequency $\mathrm{MHz}$')
          ax.set_title(metadata["filename"])
          plt.tight_layout()
@@ -129,12 +129,23 @@ while Option != 8:
       
    if Option == 3:
       print("You have chosen to plot the waterfall of the spectrums.\n")
+
+      fig, ax = plt.subplots()
+      ax.pcolor(data.columns.values/1e6, data.index.values, data.values, cmap ='viridis')
+      ax.set_xlabel(r'Frequency / $\mathrm{MHz}$')
+      plt.setp(ax.get_xticklabels(), rotation=90, ha="right",
+         rotation_mode="anchor")
+      ax.set_ylabel('Time')
+      plt.show()
+      
+      """
       sn.set_style("whitegrid")
       sn.set_context("paper")
       sn.heatmap(data, cmap ='RdYlGn', linewidths = 0, annot = False)
       plt.xlabel(r'Frequency / $\mathrm{MHz}$')
-      plt.ylabel('Timestamp')
+      plt.ylabel('Time')
       plt.show()
+      """
       
    if Option == 4:
       print(
@@ -144,18 +155,31 @@ while Option != 8:
       print(
           "Enter the bottom frequency of the integration range in MHz.\n"
       )
-      f_min = int(input("Enter the bottom frequency: "))
+      f_min = float(input("Enter the bottom frequency: "))
       f_min = closest(f_min*1e6, frequencies)
+
+      while frequencies[f_min]<metadata["spec_min_freq"]:
+         print("The frequency you entered is lower than the minimum frequency of the spectrums, ",metadata["spec_min_freq"]/1e6," MHz. Please enter a higher frequency.\n")
+         f_min = float(input("Enter the bottom frequency: "))
+         f_min = closest(f_min*1e6, frequencies)
+      
       print("Enter the top frequency of the integration range in MHz.\n")
-      f_max = int(input("Enter the top frequency: "))
+      f_max = float(input("Enter the top frequency: "))
       f_max = closest(f_max*1e6, frequencies)
+
+      while frequencies[f_max]>metadata["spec_max_freq"] and frequencies[f_min]<frequencies[f_max]:
+         print("The top frecuency must be between the bottom frequency ", frequencies[f_min]/1e6," MHz and the maximum frequency of the spectrum", metadata["spec_max_freq"]/1e6, " MHz.\n")
+         f_max = float(input("Enter the top frequency: "))
+         f_max = closest(f_max*1e6, frequencies)
 
       Int = np.trapz(data.iloc[:,f_min:f_max], x=frequencies[f_min:f_max], axis=1)
 
       fig, ax = plt.subplots()
       ax.plot(data.index.values, Int, "rx")
-      ax.set_ylabel(r'Integrated Relative Power / $\mathrm{dB Hz}$')
+      ax.set_ylabel(r'Integrated Relative Power / $\mathrm{dB}$')
       ax.set_xlabel(r'Timestamp')
+      plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+         rotation_mode="anchor")
       ax.set_title(metadata["filename"])
       plt.tight_layout()
       plt.show()
