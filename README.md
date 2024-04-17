@@ -52,14 +52,17 @@ for us -, those from [RTL-SDR](https://www.rtl-sdr.com). Follow these steps to i
 ## Usage
 
 Currently two programs are ready to use `Reading.py` and `SDR_Spectrometer.py`. The latter creates a `.npz` file which contains metadata,
-frequencies and a timelapsed psd for specified portion of VHF spectrum. The other file reads the `.npz` file and plots an animation of the psd over time.
+frequencies and a timelapsed psd for specified portion of VHF spectrum. The other file reads the `.npz` file and can display it in several ways:
+	1. It cans plot a single spectrum of those contained in the .npz file
+ 	2. plot an animation of the spectrum over time
+	3. plot a waterfall diagram of the psd in time
+ 	4. or plot a portion of the spectrum integrated over time.
 
 ## Roadmap
 
 * In development
 
 	- [ ] Rewriting the code from SoapySDR, this library allows user to get samples from devices other than Rtl-Sdr.
-	- [ ] Write a piece of code which integrates some portion of the spectrum and plots it over time.
 
 * In a close future
 
