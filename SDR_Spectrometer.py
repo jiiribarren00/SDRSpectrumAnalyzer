@@ -1,8 +1,17 @@
-# La librería utiliza los drivers de Rtl-Sdr desde python
-# La librería se puede descargar desde https://pypi.org/project/pyrtlsdr/
-# Los drivers se instalan según las intrucciones de 
-from rtlsdr import RtlSdr
-import matplotlib.pyplot as plt
+# La librería utiliza los drivers y librería de python de SoapySDR 
+"""
+Se construye a partir de clonaciones de los repositorios. Ejecutamos la siguiente guía:
+   https://github.com/pothosware/SoapySDR/wiki/BuildGuide 
+Luego clonamos los drivers específicos para SDRplay:
+   https://github.com/pothosware/SoapySDRPlay3/wiki
+Lo mismo para RTL-SDR:
+	https://github.com/pothosware/SoapyRTLSDR/wiki 
+Tambien hay que descargar e instalar los enlaces a python:
+	https://github.com/pothosware/SoapySDR/wiki/PythonSupport 
+"""
+import SoapySDR
+from SoapySDR import * #SOAPY_SDR_ constants
+for result in results: print(result)
 import numpy as np
 import time
 
@@ -30,7 +39,33 @@ mes_sample_num = 2048
 
 #-------------------------
 
+Devices = SoapySDR.Device.enumerate()
 
+if len(Devices) == 0:
+    print("No devices found")
+    exit()
+elif len(Devices) == 1:
+   sdr = SoapySDR.Device(dict(driver=Devices["driver"]))
+elif len(Devices) > 1:
+   print("Multiple devices found. Select the device to record")
+   for i in range(len(Devices)):
+      print(str(i) + " - " + str(Devices[i]))
+   selection = int(input("Enter the number of the device you want to record: "))
+   sdr = SoapySDR.Device(dict(driver=Devices["driver"][selection])) #Hay que chequear si esto funciona. No creo que lo necesitemos
+
+# Set sample rate
+sdr.setSampleRate(SOAPY_SDR_RX, 0, mes_samplerate)
+
+# Tune to center frequency
+#sdr.setFrequency(SOAPY_SDR_RX, 0, mes_center_freq)
+
+# Set gain
+sdr.setGainMode(SOAPY_SDR_RX, 0, True)  # Enable AGC
+sdr.setGain(SOAPY_SDR_RX, 0, 30)           # Set gain value (between 0 and 49)
+
+
+
+"""
 # Se crea un objeto tipo RtlSdr que iniciará el dispositivo
 sdr = RtlSdr()
 # Se establece la frecuencia de muestreo de la señal de radio
@@ -39,7 +74,7 @@ sdr.sample_rate = mes_samplerate
 sdr.freq_correction = 60
 # [Debe ser un valor fijo a lo largo del experimento. Hay que averiguar bien qué valor darle]
 sdr.gain = 30 # entre 0 y 49
-
+"""
 
 #-------------------------
 
@@ -79,12 +114,25 @@ while exp_time-(time.time()-TIME[0]) > 0:
 			# Configuramos la frecuencia central de la medida    
 			sdr.center_freq = mes_center_freq
 			CheckInf = True
-			while(CheckInf):   		
+			while(CheckInf):
+
+            # Tune to center frequency
+            sdr.setFrequency(SOAPY_SDR_RX, 0, mes_center_freq)
+
+            # Read samples
+            rx_buff = np.empty(2 * mes_sample_num, np.int16)
+            rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CS16, [0])
+            sdr.activateStream(rx_stream)
+            sr = sdr.readStream(rx_stream, [rx_buff], mes_sample_num, timeoutUs=1e6)
+            sdr.deactivateStream(rx_stream)
+            sdr.closeStream(rx_stream)
+
+            """
 				# Tomamos mes_samples_num muestras de la señal de radio	
 				mes_samples = sdr.read_samples(mes_sample_num)
-
+            """
 				# Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
-				mes_power = np.abs(np.fft.fft(mes_samples))**2 / (mes_sample_num*mes_samplerate/2)
+				mes_power = np.abs(np.fft.fft(rx_buff))**2 / (mes_sample_num*mes_samplerate/2)
 				# Pasamos la potencia a dB
 				mes_power = 10.0*np.log10(mes_power)
 				CheckInf=np.isinf(mes_power).any()
