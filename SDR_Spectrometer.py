@@ -11,7 +11,6 @@ Tambien hay que descargar e instalar los enlaces a python:
 """
 import SoapySDR
 from SoapySDR import * #SOAPY_SDR_ constants
-for result in results: print(result)
 import numpy as np
 import time
 
@@ -20,7 +19,7 @@ import time
 
 
 # Maximo plazo por el que se registrarán espectros / s
-exp_time = 5*60
+exp_time = 1*60
 
 # Máximo periodo entre la toma de distintos espectros / s
 spec_period = 0*60
@@ -45,25 +44,22 @@ if len(Devices) == 0:
     print("No devices found")
     exit()
 elif len(Devices) == 1:
-   sdr = SoapySDR.Device(dict(driver=Devices["driver"]))
+   sdr = SoapySDR.Device(dict(driver=Devices[0]["driver"]))
 elif len(Devices) > 1:
    print("Multiple devices found. Select the device to record")
    for i in range(len(Devices)):
-      print(str(i) + " - " + str(Devices[i]))
+      print(str(i) + " - " + str(Devices[i]["driver"]))
    selection = int(input("Enter the number of the device you want to record: "))
-   sdr = SoapySDR.Device(dict(driver=Devices["driver"][selection])) #Hay que chequear si esto funciona. No creo que lo necesitemos
+   sdr = SoapySDR.Device(dict(driver=Devices[selection]["driver"])) #Hay que chequear si esto funciona. No creo que lo necesitemos
 
 # Set sample rate
 sdr.setSampleRate(SOAPY_SDR_RX, 0, mes_samplerate)
-
-# Tune to center frequency
-#sdr.setFrequency(SOAPY_SDR_RX, 0, mes_center_freq)
 
 # Set gain
 sdr.setGainMode(SOAPY_SDR_RX, 0, True)  # Enable AGC
 sdr.setGain(SOAPY_SDR_RX, 0, 30)           # Set gain value (between 0 and 49)
 
-
+rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CS16, [0])
 
 """
 # Se crea un objeto tipo RtlSdr que iniciará el dispositivo
@@ -81,6 +77,7 @@ sdr.gain = 30 # entre 0 y 49
 
 #Creamos el nombre del archivo en el que se guardarán los datos
 filename = "Exp__"+time.strftime("%Y_%m_%d__%H_%M_%S")
+
 # Creamos el archivo e incluimos la metadata del experimento en él
 np.savez(filename, Metadata = [filename, exp_time, spec_period, spec_repetitions, 
 		spec_min_freq, spec_max_freq, mes_samplerate, mes_sample_num])
@@ -111,26 +108,22 @@ while exp_time-(time.time()-TIME[0]) > 0:
 	for j in range(spec_repetitions):
 		print(f"{i+1}th spectrum {j+1}th repetition - scanning.")
 		for mes_center_freq in spec_freq_range:
-			# Configuramos la frecuencia central de la medida    
-			sdr.center_freq = mes_center_freq
+      
+			# Tune to center frequency
+			sdr.setFrequency(SOAPY_SDR_RX, 0, mes_center_freq)
+
 			CheckInf = True
 			while(CheckInf):
+       			# Read samples
+				rx_buff = np.empty(2 * mes_sample_num, np.int16)
+				sdr.activateStream(rx_stream)
+				sr = sdr.readStream(rx_stream, [rx_buff], mes_sample_num) #, timeoutUs=1e6)
+				sdr.deactivateStream(rx_stream)
 
-            # Tune to center frequency
-            sdr.setFrequency(SOAPY_SDR_RX, 0, mes_center_freq)
-
-            # Read samples
-            rx_buff = np.empty(2 * mes_sample_num, np.int16)
-            rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CS16, [0])
-            sdr.activateStream(rx_stream)
-            sr = sdr.readStream(rx_stream, [rx_buff], mes_sample_num, timeoutUs=1e6)
-            sdr.deactivateStream(rx_stream)
-            sdr.closeStream(rx_stream)
-
-            """
-				# Tomamos mes_samples_num muestras de la señal de radio	
-				mes_samples = sdr.read_samples(mes_sample_num)
-            """
+				"""
+					# Tomamos mes_samples_num muestras de la señal de radio	
+					mes_samples = sdr.read_samples(mes_sample_num)
+				"""
 				# Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
 				mes_power = np.abs(np.fft.fft(rx_buff))**2 / (mes_sample_num*mes_samplerate/2)
 				# Pasamos la potencia a dB
@@ -185,10 +178,7 @@ while exp_time-(time.time()-TIME[0]) > 0:
 	i += 1
 
 
-# Cerramos el sdr
-sdr.close()
-sdr = None
-
+sdr.closeStream(rx_stream)
 
 print("FIN DEL EXPERIMENTO")
 print("TIEMPO DE EJECUCIÓN = ", time.time() - TIME[0])
