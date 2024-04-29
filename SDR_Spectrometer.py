@@ -19,19 +19,19 @@ import time
 
 
 # Maximo plazo por el que se registrarán espectros / s
-exp_time = 1*60
+exp_time = 0.25*60
 
 # Máximo periodo entre la toma de distintos espectros / s
 spec_period = 0*60
 # Numero de veces que se repetirán las medidas para obtener un espectro
 spec_repetitions = 100
 # Mínima frecuencia registrada en un espectro / Hz
-spec_min_freq = 140*1e6
+spec_min_freq = 80*1e6
 # Máxima frecuencia registrada en un espectro / Hz
-spec_max_freq = 150*1e6
+spec_max_freq = 120*1e6
 
 # Frecuencia de muestreo de la señal de radio o medio bandwith / Hz
-mes_samplerate = 2.4*1e6 #2.4*1e6
+mes_samplerate = 10*1e6 #2.4*1e6
 # Numero de muestras de señal de radio a tomar en una medida
 mes_sample_num = 2048
 
@@ -57,7 +57,7 @@ sdr.setSampleRate(SOAPY_SDR_RX, 0, mes_samplerate)
 
 # Set gain
 sdr.setGainMode(SOAPY_SDR_RX, 0, True)  # Enable AGC
-sdr.setGain(SOAPY_SDR_RX, 0, 30)           # Set gain value (between 0 and 49)
+#sdr.setGain(SOAPY_SDR_RX, 0, 0)           # Set gain value (between 0 and 49)
 
 rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CS16, [0])
 

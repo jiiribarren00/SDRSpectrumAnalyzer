@@ -25,15 +25,15 @@ def closest(x, v):
    return np.argmin(a)
 
 
-print(
-    "\nThis file reads the data from the Exp file and can express it in several ways.\n"
+print("\n_____________________________________________________________________________\n",
+       "This file reads the data from the Exp file and can express it in several ways.\n"
 )
 
 Option = 7
 
 while Option != 8:
    if Option == 7:
-      path = str(input("Enter the Exp file's path: "))
+      path = str(input("\n Enter the Exp file's path: "))
 
       data = dict(np.load(path, allow_pickle=True))
       del path
