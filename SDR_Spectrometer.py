@@ -5,9 +5,9 @@ Se construye a partir de clonaciones de los repositorios. Ejecutamos la siguient
 Luego clonamos los drivers específicos para SDRplay:
    https://github.com/pothosware/SoapySDRPlay3/wiki
 Lo mismo para RTL-SDR:
-	https://github.com/pothosware/SoapyRTLSDR/wiki 
+   https://github.com/pothosware/SoapyRTLSDR/wiki 
 Tambien hay que descargar e instalar los enlaces a python:
-	https://github.com/pothosware/SoapySDR/wiki/PythonSupport 
+   https://github.com/pothosware/SoapySDR/wiki/PythonSupport 
 """
 import SoapySDR
 from SoapySDR import * #SOAPY_SDR_ constants
@@ -80,7 +80,7 @@ filename = "Exp__"+time.strftime("%Y_%m_%d__%H_%M_%S")
 
 # Creamos el archivo e incluimos la metadata del experimento en él
 np.savez(filename, Metadata = [filename, exp_time, spec_period, spec_repetitions, 
-		spec_min_freq, spec_max_freq, mes_samplerate, mes_sample_num])
+      spec_min_freq, spec_max_freq, mes_samplerate, mes_sample_num])
 
 
 #-------------------------
@@ -95,87 +95,87 @@ i = 0
 while exp_time-(time.time()-TIME[0]) > 0:
 
 
-	# Registramos el tiempo en el que se comienza a tomar el espectro actual
-	spec_start_time = time.time()
+   # Registramos el tiempo en el que se comienza a tomar el espectro actual
+   spec_start_time = time.time()
 
-	# Creamos una lista de listas vacías para guardar la potencia en cada repetición
-	spec_power = [[] for k in range(spec_repetitions)]
-	# Creamos una lista vacías para guardar las frecuencias del espectro
-	spec_freq = []
+   # Creamos una lista de listas vacías para guardar la potencia en cada repetición
+   spec_power = [[] for k in range(spec_repetitions)]
+   # Creamos una lista vacías para guardar las frecuencias del espectro
+   spec_freq = []
 
-	# Creamos un rango de frecuencias en el que se tomaran las medidas
-	spec_freq_range = np.arange(spec_min_freq, spec_max_freq, mes_samplerate/2)
-	for j in range(spec_repetitions):
-		print(f"{i+1}th spectrum {j+1}th repetition - scanning.")
-		for mes_center_freq in spec_freq_range:
+   # Creamos un rango de frecuencias en el que se tomaran las medidas
+   spec_freq_range = np.arange(spec_min_freq, spec_max_freq, mes_samplerate/2)
+   for j in range(spec_repetitions):
+      print(f"{i+1}th spectrum {j+1}th repetition - scanning.")
+      for mes_center_freq in spec_freq_range:
       
-			# Tune to center frequency
-			sdr.setFrequency(SOAPY_SDR_RX, 0, mes_center_freq)
-			
+         # Tune to center frequency
+         sdr.setFrequency(SOAPY_SDR_RX, 0, mes_center_freq)
+         
 
-			CheckInf = True
-			
-			while(CheckInf):
-                # Read samples
-                rx_buff = np.empty(mes_sample_num, np.int16)
+         CheckInf = True
+         
+         while(CheckInf):
+            # Read samples
+            rx_buff = np.empty(mes_sample_num, np.int16)
 
-                sdr.activateStream(rx_stream)
-                sdr = sdr.readStream(rx_stream, [rx_buff], mes_sample_num) #, timeoutUs=1e6)
-                sdr.deactivateStream(rx_stream)
-				
-				# Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
-				mes_power = np.abs(np.fft.fft(rx_buff))**2 / (mes_sample_num*mes_samplerate/2)
-				# Pasamos la potencia a dB
-				mes_power = 10.0*np.log10(mes_power)
+            sdr.activateStream(rx_stream)
+            sdr = sdr.readStream(rx_stream, [rx_buff], mes_sample_num) #, timeoutUs=1e6)
+            sdr.deactivateStream(rx_stream)
+            
+            # Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
+            mes_power = np.abs(np.fft.fft(rx_buff))**2 / (mes_sample_num*mes_samplerate/2)
+            # Pasamos la potencia a dB
+            mes_power = 10.0*np.log10(mes_power)
    
-				CheckInf=np.isinf(mes_power).any()
-	
-				if(not(CheckInf)):
-					mes_power = np.fft.fftshift(mes_power)
-					# Descartamos el primer y último cuarto de mes_power
-					mes_power = mes_power[mes_power.size // 4: - mes_power.size // 4]
-					# Agregamos las potencias de esta medida al espectro
-					spec_power[j] = np.concatenate((spec_power[j], mes_power))
-
-					if j == 0 and i == 0:
-						# Genero un vector de frecuencias en el rango de frecuencias de la señal de radio
-						mes_freq = np.fft.fftfreq(n=mes_power.size, d=2/mes_samplerate)
-						mes_freq = np.fft.fftshift(mes_freq)+mes_center_freq
-						# Descartamos el primer y último cuarto de mes_freq
-						#mes_freq = mes_freq[mes_freq.size // 4: - mes_freq.size // 4]
-						# Agregamos las frecuencias de esta medida a las anteriores del espectro
-						spec_freq = np.concatenate((spec_freq, mes_freq))
-			
-			
+            CheckInf=np.isinf(mes_power).any()
    
-			
+            if(not(CheckInf)):
+               mes_power = np.fft.fftshift(mes_power)
+               # Descartamos el primer y último cuarto de mes_power
+               mes_power = mes_power[mes_power.size // 4: - mes_power.size // 4]
+               # Agregamos las potencias de esta medida al espectro
+               spec_power[j] = np.concatenate((spec_power[j], mes_power))
+
+               if j == 0 and i == 0:
+                  # Genero un vector de frecuencias en el rango de frecuencias de la señal de radio
+                  mes_freq = np.fft.fftfreq(n=mes_power.size, d=2/mes_samplerate)
+                  mes_freq = np.fft.fftshift(mes_freq)+mes_center_freq
+                  # Descartamos el primer y último cuarto de mes_freq
+                  #mes_freq = mes_freq[mes_freq.size // 4: - mes_freq.size // 4]
+                  # Agregamos las frecuencias de esta medida a las anteriores del espectro
+                  spec_freq = np.concatenate((spec_freq, mes_freq))
+         
+         
+   
+         
 
 
-	# Hay algun tema con la ganancia que no sé como ajustarla para mejorar los valores de la PSD
-	spec_power = np.mean(spec_power, axis=0 )           #-min(np.mean(spec_power, axis=0))
+   # Hay algun tema con la ganancia que no sé como ajustarla para mejorar los valores de la PSD
+   spec_power = np.mean(spec_power, axis=0 )           #-min(np.mean(spec_power, axis=0))
 
 
-	# Cargamos el archivo .npz en un diccionario
-	arrays = dict(np.load(filename+".npz", allow_pickle = True))
+   # Cargamos el archivo .npz en un diccionario
+   arrays = dict(np.load(filename+".npz", allow_pickle = True))
 
-	if i == 0:
-		# Si estoy calculando el primer espectro del experimento, agrego antes las frecuencias
-		arrays["frequencies"] = spec_freq
+   if i == 0:
+      # Si estoy calculando el primer espectro del experimento, agrego antes las frecuencias
+      arrays["frequencies"] = spec_freq
 
-	# Añadimos el último espectro generado al diccionario recien abierto
-	arrays[time.strftime("%H-%M-%S")] = spec_power
-	# Guardamos el diccionario en el archivo que generamos originalmente
-	np.savez(filename, **arrays)
-	# Eliminamos el diccionario para liberar memoria
-	del arrays
+   # Añadimos el último espectro generado al diccionario recien abierto
+   arrays[time.strftime("%H-%M-%S")] = spec_power
+   # Guardamos el diccionario en el archivo que generamos originalmente
+   np.savez(filename, **arrays)
+   # Eliminamos el diccionario para liberar memoria
+   del arrays
 
 
-	if time.time() - spec_start_time < spec_period:
-		# Si el tiempo que se tardo en tomar el último espectro es menor a spec_period,
-		# esperamos ese tiempo
-		time.sleep(spec_period - (time.time() - spec_start_time))
+   if time.time() - spec_start_time < spec_period:
+      # Si el tiempo que se tardo en tomar el último espectro es menor a spec_period,
+      # esperamos ese tiempo
+      time.sleep(spec_period - (time.time() - spec_start_time))
 
-	i += 1
+   i += 1
 
 
 sdr.closeStream(rx_stream)
