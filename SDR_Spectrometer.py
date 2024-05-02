@@ -19,21 +19,21 @@ import time
 
 
 # Maximo plazo por el que se registrarán espectros / s
-exp_time = 0.25*60
+exp_time = 1*60
 
 # Máximo periodo entre la toma de distintos espectros / s
 spec_period = 0*60
 # Numero de veces que se repetirán las medidas para obtener un espectro
 spec_repetitions = 100
 # Mínima frecuencia registrada en un espectro / Hz
-spec_min_freq = 80*1e6
+spec_min_freq = 90*1e6
 # Máxima frecuencia registrada en un espectro / Hz
-spec_max_freq = 120*1e6
+spec_max_freq = 110*1e6
 
 # Frecuencia de muestreo de la señal de radio o medio bandwith / Hz
 mes_samplerate = 10*1e6 #2.4*1e6
 # Numero de muestras de señal de radio a tomar en una medida
-mes_sample_num = 2048
+mes_sample_num = 1024
 
 
 #-------------------------
@@ -56,8 +56,8 @@ elif len(Devices) > 1:
 sdr.setSampleRate(SOAPY_SDR_RX, 0, mes_samplerate)
 
 # Set gain
-sdr.setGainMode(SOAPY_SDR_RX, 0, True)  # Enable AGC
-#sdr.setGain(SOAPY_SDR_RX, 0, 0)           # Set gain value (between 0 and 49)
+sdr.setGainMode(SOAPY_SDR_RX, 0, False)  # Enable AGC
+sdr.setGain(SOAPY_SDR_RX, 0, 0)           # Set gain value (between 0 and 49)
 
 rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CS16, [0])
 
@@ -111,24 +111,25 @@ while exp_time-(time.time()-TIME[0]) > 0:
       
 			# Tune to center frequency
 			sdr.setFrequency(SOAPY_SDR_RX, 0, mes_center_freq)
+			
 
 			CheckInf = True
+			
 			while(CheckInf):
-       			# Read samples
-				rx_buff = np.empty(2 * mes_sample_num, np.int16)
-				sdr.activateStream(rx_stream)
-				sr = sdr.readStream(rx_stream, [rx_buff], mes_sample_num) #, timeoutUs=1e6)
-				sdr.deactivateStream(rx_stream)
+                # Read samples
+                rx_buff = np.empty(mes_sample_num, np.int16)
 
-				"""
-					# Tomamos mes_samples_num muestras de la señal de radio	
-					mes_samples = sdr.read_samples(mes_sample_num)
-				"""
+                sdr.activateStream(rx_stream)
+                sdr = sdr.readStream(rx_stream, [rx_buff], mes_sample_num) #, timeoutUs=1e6)
+                sdr.deactivateStream(rx_stream)
+				
 				# Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
 				mes_power = np.abs(np.fft.fft(rx_buff))**2 / (mes_sample_num*mes_samplerate/2)
 				# Pasamos la potencia a dB
 				mes_power = 10.0*np.log10(mes_power)
+   
 				CheckInf=np.isinf(mes_power).any()
+	
 				if(not(CheckInf)):
 					mes_power = np.fft.fftshift(mes_power)
 					# Descartamos el primer y último cuarto de mes_power
@@ -144,12 +145,11 @@ while exp_time-(time.time()-TIME[0]) > 0:
 						#mes_freq = mes_freq[mes_freq.size // 4: - mes_freq.size // 4]
 						# Agregamos las frecuencias de esta medida a las anteriores del espectro
 						spec_freq = np.concatenate((spec_freq, mes_freq))
+			
+			
    
-			#print(f"{j+1}th repetition - scanning {mes_center_freq/1e6}MHz")
+			
 
-
-	#spec_power = np.nan_to_num(spec_power, copy = False, nan = 0, posinf=0, neginf=0)
-	# Esto no debería estar pero no sé qué hacer. Hay valores -in y Nan por el log.
 
 	# Hay algun tema con la ganancia que no sé como ajustarla para mejorar los valores de la PSD
 	spec_power = np.mean(spec_power, axis=0 )           #-min(np.mean(spec_power, axis=0))
