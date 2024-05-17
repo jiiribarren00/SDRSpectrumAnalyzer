@@ -15,8 +15,10 @@ for result in results: print(result)
 sdr = SoapySDR.Device(dict(driver="sdrplay"))
 
 #query device info
-print("\n List device's antennas: ",sdr.listAntennas(SOAPY_SDR_RX, 0))
+print("\nList device's antennas: ",sdr.listAntennas(SOAPY_SDR_RX, 0))
 print("List device's gains range: ",sdr.getGainRange(SOAPY_SDR_RX, 0))
+print("List device's gains range: ",sdr.getGain(SOAPY_SDR_RX, 0))
+print("List device's gains range: ",sdr.listGains(SOAPY_SDR_RX, 0))
 print("List device's samplerates: ",sdr.listSampleRates(SOAPY_SDR_RX, 0))
 print("List device's frequency range: ",sdr.getFrequencyRange(SOAPY_SDR_RX, 0))
 
@@ -36,9 +38,13 @@ a = input("\n Set the gain from range "+str(sdr.getGainRange(SOAPY_SDR_RX, 0))+"
 if a == "":
    # Action to be taken when Enter is pressed
    sdr.setGainMode(SOAPY_SDR_RX, 0, True)
+   print("Device's AutoGain: ",sdr.getGainMode(SOAPY_SDR_RX, 0))
 else:
    sdr.setGainMode(SOAPY_SDR_RX, 0, False)  # Enable AGC
    sdr.setGain(SOAPY_SDR_RX, 0, float(a))
+   
+
+
 
 a = input("\n Set the samplerate (double-bandwidth) between "+str(min(sdr.listSampleRates(SOAPY_SDR_RX, 0)))+" and "+str(max(sdr.listSampleRates(SOAPY_SDR_RX, 0)))+":")
 
@@ -79,7 +85,7 @@ def animate(i):
     ax2.scatter(np.linspace(0, len(buff)/sdr.getSampleRate(SOAPY_SDR_RX, 0), len(buff))*1000,np.abs(buff))
     ax2.set_xlabel("Time / ms")
     ax2.set_ylabel("Radio Signal")
-    fig.suptitle(str(samples))
+    fig.suptitle(str(samples)+", Gain"+str(sdr.getGain(SOAPY_SDR_RX, 0)))
     #print(buff)
 
 

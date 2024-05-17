@@ -138,14 +138,6 @@ while Option != 8:
       ax.set_ylabel('Time')
       plt.show()
       
-      """
-      sn.set_style("whitegrid")
-      sn.set_context("paper")
-      sn.heatmap(data, cmap ='RdYlGn', linewidths = 0, annot = False)
-      plt.xlabel(r'Frequency / $\mathrm{MHz}$')
-      plt.ylabel('Time')
-      plt.show()
-      """
       
    if Option == 4:
       print(

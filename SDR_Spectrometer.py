@@ -19,21 +19,21 @@ import time
 
 
 # Maximo plazo por el que se registrarán espectros / s
-exp_time = 8*60
+exp_time = 1*60
 
 # Máximo periodo entre la toma de distintos espectros / s
 spec_period = 0*60
 # Numero de veces que se repetirán las medidas para obtener un espectro
-spec_repetitions = 100
+spec_repetitions = 1000
 # Mínima frecuencia registrada en un espectro / Hz
 spec_min_freq = 80*1e6
 # Máxima frecuencia registrada en un espectro / Hz
-spec_max_freq = 120*1e6
+spec_max_freq = 100*1e6
 
 # Frecuencia de muestreo de la señal de radio o medio bandwith / Hz
-mes_samplerate = 10*1e6 #2.4*1e6
+mes_samplerate = 2*1e6 #2.4*1e6
 # Numero de muestras de señal de radio a tomar en una medida
-mes_sample_num = 1024
+mes_sample_num = 2**10
 
 
 #-------------------------
@@ -55,28 +55,16 @@ elif len(Devices) > 1:
 # Set sample rate
 sdr.setSampleRate(SOAPY_SDR_RX, 0, mes_samplerate)
 
-# Set gain
-sdr.setGainMode(SOAPY_SDR_RX, 0, False)  # Enable AGC
-sdr.setGain(SOAPY_SDR_RX, 0, 20)           # Set gain value (between 0 and 49)
+
 
 rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
 
-"""
-# Se crea un objeto tipo RtlSdr que iniciará el dispositivo
-sdr = RtlSdr()
-# Se establece la frecuencia de muestreo de la señal de radio
-sdr.sample_rate = mes_samplerate
-# PPM [Hay que averiguar bien qué valor darle]
-sdr.freq_correction = 60
-# [Debe ser un valor fijo a lo largo del experimento. Hay que averiguar bien qué valor darle]
-sdr.gain = 30 # entre 0 y 49
-"""
 
 #-------------------------
 
 
 #Creamos el nombre del archivo en el que se guardarán los datos
-filename = "Exp__"+time.strftime("%Y_%m_%d__%H_%M_%S")
+filename = "Exp__"+time.strftime("%Y_%m_%d__%H_%M_%S")+"_G"+str(sdr.getGain(SOAPY_SDR_RX, 0))+"_AmpOn_AntGrande"
 
 # Creamos el archivo e incluimos la metadata del experimento en él
 np.savez(filename, Metadata = [filename, exp_time, spec_period, spec_repetitions, 
@@ -104,7 +92,7 @@ while exp_time-(time.time()-TIME[0]) > 0:
    spec_freq = []
 
    # Creamos un rango de frecuencias en el que se tomaran las medidas
-   spec_freq_range = np.arange(spec_min_freq, spec_max_freq+mes_samplerate, mes_samplerate/2)
+   spec_freq_range = np.arange(spec_min_freq+mes_samplerate/2, spec_max_freq, mes_samplerate/2)
    for j in range(spec_repetitions):
       
       print(f"{i+1}th spectrum {j+1}th repetition - scanning.")
@@ -113,6 +101,11 @@ while exp_time-(time.time()-TIME[0]) > 0:
       
          # Tune to center frequency
          sdr.setFrequency(SOAPY_SDR_RX, 0, mes_center_freq)
+         
+         # Set gain
+         sdr.setGainMode(SOAPY_SDR_RX, 0, False)  # Enable AGC
+         sdr.setGain(SOAPY_SDR_RX, 0, 33)           # Set gain value (between 0 and 49)
+
          sdr.activateStream(rx_stream)
 
          CheckInf = True
@@ -122,7 +115,7 @@ while exp_time-(time.time()-TIME[0]) > 0:
             rx_buff = np.array([0]*mes_sample_num, np.complex64)
 
             
-            results = sdr.readStream(rx_stream, [rx_buff], mes_sample_num) #, timeoutUs=1e6)
+            results = sdr.readStream(rx_stream, [rx_buff], mes_sample_num) 
             
             
             # Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
@@ -143,15 +136,13 @@ while exp_time-(time.time()-TIME[0]) > 0:
                   # Genero un vector de frecuencias en el rango de frecuencias de la señal de radio
                   mes_freq = np.fft.fftfreq(n=mes_power.size, d=2/mes_samplerate)
                   mes_freq = np.fft.fftshift(mes_freq)+mes_center_freq
-                  # Descartamos el primer y último cuarto de mes_freq
-                  #mes_freq = mes_freq[mes_freq.size // 4: - mes_freq.size // 4]
                   # Agregamos las frecuencias de esta medida a las anteriores del espectro
                   spec_freq = np.concatenate((spec_freq, mes_freq))
          sdr.deactivateStream(rx_stream)
 
 
    # Hay algun tema con la ganancia que no sé como ajustarla para mejorar los valores de la PSD
-   spec_power = np.mean(spec_power, axis=0 )           #-min(np.mean(spec_power, axis=0))
+   spec_power = np.mean(spec_power, axis=0)     
 
 
    # Cargamos el archivo .npz en un diccionario
