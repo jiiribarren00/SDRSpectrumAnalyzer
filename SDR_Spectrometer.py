@@ -38,7 +38,8 @@ spec_max_freq = 300*1e6
 seg_samplerate = 5e6 #2.4*1e6
 # Numero de muestras de señal de radio a tomar en una medida
 seg_sample_num = 2**12 #necesitamos 122KHz de res.
-
+# Determine el numero de partes en las que se divide el segmento, se descartarán la primera y la última parte
+seg_parts = 8
 
 #-------------------------
 
@@ -72,11 +73,11 @@ hann = np.hanning(len(rx_buff))
 
 
 #Creamos el nombre del archivo en el que se guardarán los datos
-filename = "Exp__"+time.strftime("%Y_%m_%d__%H_%M_%S")+"_G"+str(sdr.getGain(SOAPY_SDR_RX, 0))
+filename = "Exp__"+time.strftime("%Y_%m_%d__%H_%M_%S")
 
 # Creamos el archivo e incluimos la metadata del experimento en él
 np.savez(filename, Metadata = [filename, exp_time, exp_gain, spec_period, spec_repetitions, 
-      spec_min_freq, spec_max_freq, seg_samplerate, seg_sample_num, annotations])
+      spec_min_freq, spec_max_freq, seg_samplerate, seg_sample_num, seg_parts, annotations])
 
 
 #-------------------------
@@ -105,8 +106,11 @@ while exp_time-(time.time()-TIME[0]) > 0:
    spec_freq = []
 
    # Creamos un rango de frecuencias en el que se tomaran las medidas
-   spec_freq_range = np.arange(spec_min_freq+seg_samplerate/2, spec_max_freq, seg_samplerate/2)
-   
+   if seg_parts == 1:
+      spec_freq_range = np.arange(spec_min_freq, spec_max_freq, seg_samplerate)
+   elif seg_parts != 2 and seg_parts != 1:
+      spec_freq_range = np.arange(spec_min_freq+seg_samplerate/seg_parts, spec_max_freq, seg_samplerate/(seg_parts-2))
+
    for j in range(spec_repetitions):
       
       print(f"{i+1}th spectrum {j+1}th repetition - scanning.")
@@ -127,22 +131,33 @@ while exp_time-(time.time()-TIME[0]) > 0:
 
             rx_buff2 = rx_buff*hann
             # Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
-            seg_power = np.abs(np.fft.fft(rx_buff2))**2 / (seg_sample_num*seg_samplerate/2)
+            if seg_parts == 1:
+               seg_power = np.abs(np.fft.fft(rx_buff2))**2 / (seg_sample_num*seg_samplerate)
+            elif seg_parts != 1 and seg_parts != 2:
+               seg_power = np.abs(np.fft.fft(rx_buff2))**2 / (seg_sample_num*seg_samplerate/(seg_parts-2))
+
             # Pasamos la potencia a dB
             seg_power = 10.0*np.log10(seg_power)
    
             CheckInf=np.isinf(seg_power).any()
    
             if(not(CheckInf)):
+               
                seg_power = np.fft.fftshift(seg_power)
-               # Descartamos el primer y último cuarto de seg_power
-               seg_power = seg_power[seg_power.size // 4: - seg_power.size // 4]
+
+               if seg_parts != 1 and seg_parts != 2:
+                  # Descartamos la primer y última seg_parts-esima parte de seg_power
+                  seg_power = seg_power[seg_power.size // seg_parts: - seg_power.size // seg_parts]
+               
                # Agregamos las potencias de esta medida al espectro
                spec_power[j] = np.concatenate((spec_power[j], seg_power))
 
                if j == 0 and i == 0:
                   # Genero un vector de frecuencias en el rango de frecuencias de la señal de radio
-                  seg_freq = np.fft.fftfreq(n=seg_power.size, d=2/seg_samplerate)
+                  if seg_parts == 1:
+                     seg_freq = np.fft.fftfreq(n=seg_power.size, d=1/seg_samplerate)
+                  elif seg_parts != 1 and seg_parts != 2:
+                     seg_freq = np.fft.fftfreq(n=seg_power.size, d=(seg_parts-2)/seg_samplerate)
                   seg_freq = np.fft.fftshift(seg_freq)+seg_center_freq
                   # Agregamos las frecuencias de esta medida a las anteriores del espectro
                   spec_freq = np.concatenate((spec_freq, seg_freq))

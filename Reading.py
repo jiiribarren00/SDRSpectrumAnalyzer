@@ -39,18 +39,27 @@ while Option != 8:
       del path
 
       metadata = {}
+      times = {}
+
       if len(arrays["Metadata"]) == 8: # This conditional nust be eliminated once no more old exp files are left
+         
          a = [
             "filename", "exp_time", "spec_period", "spec_repetitions",
-            "spec_min_freq", "spec_max_freq", "mes_samplerate",
-            "mes_sample_num"
+            "spec_min_freq", "spec_max_freq", "seg_samplerate",
+            "seg_sample_num"
          ]
-      elif len(arrays["Metadata"]) == 10:
+
+      elif len(arrays["Metadata"]) == 11:
+         
          a = [
             "filename", "exp_time", "exp_gain", "spec_period", "spec_repetitions",
-            "spec_min_freq", "spec_max_freq", "mes_samplerate",
-            "mes_sample_num", "annotations"
+            "spec_min_freq", "spec_max_freq", "seg_samplerate",
+            "seg_sample_num","seg_parts", "annotations"
          ]
+
+         times["exp_init_timestamp"] = arrays["times"][0]
+         for i in range(len(arrays["times"])-1):
+            times[list(arrays.keys())[i+2]] = arrays["times"][i+1]
       
       for i in range(len(arrays["Metadata"])):
          
@@ -60,15 +69,6 @@ while Option != 8:
             metadata[a[i]] = float(arrays["Metadata"][i])
       
       frequencies = arrays["frequencies"]
-
-      times = {}
-
-      if len(arrays["Metadata"]) == 10:
-         
-         times["exp_init_timestamp"] = arrays["times"][0]
-
-         for i in range(len(arrays["times"])-1):
-            times[list(arrays.keys())[i+2]] = arrays["times"][i+1]
       
       del arrays["times"], a, arrays["Metadata"], arrays["frequencies"]
 
