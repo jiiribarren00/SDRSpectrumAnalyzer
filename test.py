@@ -4,6 +4,7 @@ from SoapySDR import * #SOAPY_SDR_ constants
 import numpy as np #use numpy for buffers
 
 import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
 import matplotlib.animation as animation
 
 #enumerate devices
@@ -68,16 +69,22 @@ def animate(i):
     ax0.clear()
     ax1.clear()
     ax2.clear()
+    
     sdr.activateStream(rxStream)
     samples = sdr.readStream(rxStream, [buff], len(buff))
     sdr.deactivateStream(rxStream)
+    
     # use matplotlib to estimate and plot the PSD
-    ax0.psd(buff, NFFT=len(buff), Fs=sdr.getSampleRate(SOAPY_SDR_RX, 0), Fc=sdr.getFrequency(SOAPY_SDR_RX, 0))
-    mes_power = np.abs(np.fft.fft(buff))**2 / (len(buff)*sdr.getSampleRate(SOAPY_SDR_RX, 0)/2)
+    ax0.psd(buff, NFFT=len(buff), Fs=sdr.getSampleRate(SOAPY_SDR_RX, 0), Fc=sdr.getFrequency(SOAPY_SDR_RX, 0)) #, window = mlab.window_none(buff))
+    
+    hann = np.hanning(len(buff))
+    buff2 = buff*hann
+    mes_power = np.abs(np.fft.fft(buff2))**2 / (len(buff2)*sdr.getSampleRate(SOAPY_SDR_RX, 0)/2)
     mes_power = 10.0*np.log10(mes_power)
     mes_power = np.fft.fftshift(mes_power)
     mes_freq = np.fft.fftfreq(n=mes_power.size, d=2/sdr.getSampleRate(SOAPY_SDR_RX, 0))    
     mes_freq = np.fft.fftshift(mes_freq)+sdr.getFrequency(SOAPY_SDR_RX, 0)
+    
     ax1.plot(mes_freq/1e6, mes_power)
     ax1.set_xlabel("Frequencie / MHz")
     ax1.set_ylabel("PSD")

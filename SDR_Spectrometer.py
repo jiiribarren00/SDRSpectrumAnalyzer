@@ -22,18 +22,18 @@ import time
 exp_time = 1*60
 
 # Máximo periodo entre la toma de distintos espectros / s
-spec_period = 0*60
+spec_period = 1*60
 # Numero de veces que se repetirán las medidas para obtener un espectro
-spec_repetitions = 1000
+spec_repetitions = 100
 # Mínima frecuencia registrada en un espectro / Hz
-spec_min_freq = 80*1e6
+spec_min_freq = 30*1e6
 # Máxima frecuencia registrada en un espectro / Hz
-spec_max_freq = 100*1e6
+spec_max_freq = 300*1e6
 
 # Frecuencia de muestreo de la señal de radio o medio bandwith / Hz
-mes_samplerate = 2*1e6 #2.4*1e6
+mes_samplerate = 1e6 #2.4*1e6
 # Numero de muestras de señal de radio a tomar en una medida
-mes_sample_num = 2**10
+mes_sample_num = 2**12 #necesitamos 122KHz de res.
 
 
 #-------------------------
@@ -59,6 +59,8 @@ sdr.setSampleRate(SOAPY_SDR_RX, 0, mes_samplerate)
 
 rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
 
+rx_buff = np.array([0]*mes_sample_num, np.complex64)
+hann = np.hanning(len(rx_buff))
 
 #-------------------------
 
@@ -112,14 +114,15 @@ while exp_time-(time.time()-TIME[0]) > 0:
          
          while(CheckInf):
             # Read samples
-            rx_buff = np.array([0]*mes_sample_num, np.complex64)
+
 
             
             results = sdr.readStream(rx_stream, [rx_buff], mes_sample_num) 
             
-            
+           
+            rx_buff2 = rx_buff*hann
             # Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
-            mes_power = np.abs(np.fft.fft(rx_buff))**2 / (mes_sample_num*mes_samplerate/2)
+            mes_power = np.abs(np.fft.fft(rx_buff2))**2 / (mes_sample_num*mes_samplerate/2)
             # Pasamos la potencia a dB
             mes_power = 10.0*np.log10(mes_power)
    
