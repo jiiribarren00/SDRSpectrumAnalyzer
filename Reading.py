@@ -39,17 +39,27 @@ while Option != 8:
       del path
 
       metadata = {}
-      for i in range(len(data["Metadata"])):
+      if len(data["Metadata"]) == 8: # This conditional nust be eliminated once no more old exp files are left
          a = [
-             "filename", "exp_time", "spec_period", "spec_repetitions",
-             "spec_min_freq", "spec_max_freq", "mes_samplerate",
-             "mes_sample_num"
+            "filename", "exp_time", "spec_period", "spec_repetitions",
+            "spec_min_freq", "spec_max_freq", "mes_samplerate",
+            "mes_sample_num"
          ]
-         if a[i] == "filename":
-            metadata[a[i]] = data["Metadata"][i]
+      elif len(data["Metadata"]) == 10:
+         a = [
+            "filename", "exp_time", "exp_gain", "spec_period", "spec_repetitions",
+            "spec_min_freq", "spec_max_freq", "mes_samplerate",
+            "mes_sample_num", "annotations"
+         ]
+      
+      for i in range(len(data["Metadata"])):
+         
+         if a[i] == "filename" or a[i] == "annotations":
+            metadata[a[i]] = str(data["Metadata"][i])
          else:
             metadata[a[i]] = float(data["Metadata"][i])
-         del a
+      
+      del a
 
       frequencies = data["frequencies"]
 
@@ -63,6 +73,8 @@ while Option != 8:
             str(metadata["spec_min_freq"] / 1e6) + " MHz to " +
             str(metadata["spec_max_freq"] / 1e6) + " MHz.\n")
       print("\nThese are the timestamps of each one: \n", data.index.values)
+      if len(metadata) == 10:
+         print("\nCOnsider following anotations;",metadata["annotations"])
    
    print("\nNow, choose the way you want show the data.\n" +
          "[1] Plot a single spectrum.\n" +
@@ -78,22 +90,34 @@ while Option != 8:
    
    if Option == 1:
       print("\nYou have chosen to plot a single spectrum.\n")
-      print("Choose the spectrum you want to plot.\n")
-      print(
-          "Enter the timestamp with format 'hh-mm-ss' and the closest time will be displayed. Days are considered adding 24 h.\n"
-      )
-      selection = input("Enter the timestamp correctly formatted: ")
-      selection = closest_time(selection, data.index.values)
-      print("\nThe closest time is " + str(data.index.values[selection]))
-      
+
       fig, ax = plt.subplots()
-      ax.fill_between(frequencies / 1e6, data.iloc[selection,:].values)
-      ax.text(0.5,
+
+      if len(data) == 1:
+         ax.fill_between(frequencies / 1e6, data.iloc[0,:].values)
+         ax.text(0.5,
            0.1,
-           data.index.values[selection],
+           data.index.values[0],
            horizontalalignment='center',
            verticalalignment='center',
            transform=ax.transAxes)
+      elif len(data) != 1:
+         print("Choose the spectrum you want to plot.\n")
+         print(
+            "Enter the timestamp with format 'hh-mm-ss' and the closest time will be displayed. Days are considered adding 24 h.\n"
+         )
+         selection = input("Enter the timestamp correctly formatted: ")
+         selection = closest_time(selection, data.index.values)
+         print("\nThe closest time is " + str(data.index.values[selection]))
+         
+         ax.fill_between(frequencies / 1e6, data.iloc[selection,:].values)
+         ax.text(0.5,
+            0.1,
+            data.index.values[selection],
+            horizontalalignment='center',
+            verticalalignment='center',
+            transform=ax.transAxes)
+      
       ax.set_ylabel(r'Relative Power / $\mathrm{dB/Hz}$')
       ax.set_xlabel(r'Frequency / $\mathrm{MHz}$')
       ax.set_title(metadata["filename"])
