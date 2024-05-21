@@ -35,37 +35,44 @@ while Option != 8:
    if Option == 7:
       path = str(input("\n Enter the Exp file's path: "))
 
-      data = dict(np.load(path, allow_pickle=True))
+      arrays = dict(np.load(path, allow_pickle=True))
       del path
 
       metadata = {}
-      if len(data["Metadata"]) == 8: # This conditional nust be eliminated once no more old exp files are left
+      if len(arrays["Metadata"]) == 8: # This conditional nust be eliminated once no more old exp files are left
          a = [
             "filename", "exp_time", "spec_period", "spec_repetitions",
             "spec_min_freq", "spec_max_freq", "mes_samplerate",
             "mes_sample_num"
          ]
-      elif len(data["Metadata"]) == 10:
+      elif len(arrays["Metadata"]) == 10:
          a = [
             "filename", "exp_time", "exp_gain", "spec_period", "spec_repetitions",
             "spec_min_freq", "spec_max_freq", "mes_samplerate",
             "mes_sample_num", "annotations"
          ]
       
-      for i in range(len(data["Metadata"])):
+      for i in range(len(arrays["Metadata"])):
          
          if a[i] == "filename" or a[i] == "annotations":
-            metadata[a[i]] = str(data["Metadata"][i])
+            metadata[a[i]] = str(arrays["Metadata"][i])
          else:
-            metadata[a[i]] = float(data["Metadata"][i])
+            metadata[a[i]] = float(arrays["Metadata"][i])
       
-      del a
+      frequencies = arrays["frequencies"]
 
-      frequencies = data["frequencies"]
+      times = {}
 
-      del data["Metadata"], data["frequencies"]
+      if len(arrays["Metadata"]) == 10:
+         
+         times["exp_init_timestamp"] = arrays["times"][0]
 
-      data = pd.DataFrame.from_dict(data, orient="index", columns=frequencies)
+         for i in range(len(arrays["times"])-1):
+            times[list(arrays.keys())[i+2]] = arrays["times"][i+1]
+      
+      del arrays["times"], a, arrays["Metadata"], arrays["frequencies"]
+
+      data = pd.DataFrame.from_dict(arrays, orient="index", columns=frequencies)
 
       print("\nThe Exp file named " + str(metadata["filename"]) +
             " was loaded correctly.")
@@ -74,7 +81,7 @@ while Option != 8:
             str(metadata["spec_max_freq"] / 1e6) + " MHz.\n")
       print("\nThese are the timestamps of each one: \n", data.index.values)
       if len(metadata) == 10:
-         print("\nCOnsider following anotations;",metadata["annotations"])
+         print("\nConsider following anotations;",metadata["annotations"])
    
    print("\nNow, choose the way you want show the data.\n" +
          "[1] Plot a single spectrum.\n" +
@@ -210,10 +217,12 @@ while Option != 8:
       selection = closest_time(selection, data.index.values)
       print("\nThe closest time is " + str(data.index.values[selection]))
       print("\nThw corresponding sprectrum is:\n", data.iloc[selection,:])
+
    if Option == 6:
       print("You have chosen to print the metadata and frequencies in the terminal.\n")
       print(metadata)
       print(frequencies)
+      print(times)
    if Option == 7:
       Option = 7
 

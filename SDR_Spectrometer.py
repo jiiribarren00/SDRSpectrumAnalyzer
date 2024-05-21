@@ -26,7 +26,7 @@ exp_gain = 40
 annotations = ""
 
 # Máximo periodo entre la toma de distintos espectros / s
-spec_period = 1*60
+spec_period = 0*60
 # Numero de veces que se repetirán las medidas para obtener un espectro
 spec_repetitions = 1
 # Mínima frecuencia registrada en un espectro / Hz
@@ -82,17 +82,22 @@ np.savez(filename, Metadata = [filename, exp_time, exp_gain, spec_period, spec_r
 #-------------------------
 
 
-# Tiempo de inicio de las medidas
-TIME = [time.time()]
 
 # Iniciamos el contador de espectros
 i = 0
+
+
+# Tiempo de inicio de las medidas
+TIME = []
+TIME = np.append(TIME, time.time())
 
 while exp_time-(time.time()-TIME[0]) > 0:
 
 
    # Registramos el tiempo en el que se comienza a tomar el espectro actual
    spec_start_time = time.time()
+
+   spec_name = time.strftime("%H-%M-%S")
 
    # Creamos una lista de listas vacías para guardar la potencia en cada repetición
    spec_power = [[] for k in range(spec_repetitions)]
@@ -101,6 +106,7 @@ while exp_time-(time.time()-TIME[0]) > 0:
 
    # Creamos un rango de frecuencias en el que se tomaran las medidas
    spec_freq_range = np.arange(spec_min_freq+seg_samplerate/2, spec_max_freq, seg_samplerate/2)
+   
    for j in range(spec_repetitions):
       
       print(f"{i+1}th spectrum {j+1}th repetition - scanning.")
@@ -109,16 +115,16 @@ while exp_time-(time.time()-TIME[0]) > 0:
       
          # Tune to center frequency
          sdr.setFrequency(SOAPY_SDR_RX, 0, seg_center_freq)
-         
-         sdr.activateStream(rx_stream)
 
          CheckInf = True
          
          while(CheckInf):
             # Read samples
             
+            sdr.activateStream(rx_stream)
             results = sdr.readStream(rx_stream, [rx_buff], seg_sample_num)             
-           
+            sdr.deactivateStream(rx_stream)
+
             rx_buff2 = rx_buff*hann
             # Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
             seg_power = np.abs(np.fft.fft(rx_buff2))**2 / (seg_sample_num*seg_samplerate/2)
@@ -140,8 +146,8 @@ while exp_time-(time.time()-TIME[0]) > 0:
                   seg_freq = np.fft.fftshift(seg_freq)+seg_center_freq
                   # Agregamos las frecuencias de esta medida a las anteriores del espectro
                   spec_freq = np.concatenate((spec_freq, seg_freq))
-         sdr.deactivateStream(rx_stream)
 
+   TIME = np.append(TIME, time.time()-spec_start_time)
 
    # Hay algun tema con la ganancia que no sé como ajustarla para mejorar los valores de la PSD
    spec_power = np.mean(spec_power, axis=0)     
@@ -155,7 +161,7 @@ while exp_time-(time.time()-TIME[0]) > 0:
       arrays["frequencies"] = spec_freq
 
    # Añadimos el último espectro generado al diccionario recien abierto
-   arrays[time.strftime("%H-%M-%S")] = spec_power
+   arrays[spec_name] = spec_power
    # Guardamos el diccionario en el archivo que generamos originalmente
    np.savez(filename, **arrays)
    # Eliminamos el diccionario para liberar memoria
@@ -169,6 +175,10 @@ while exp_time-(time.time()-TIME[0]) > 0:
    i += 1
 
 sdr.closeStream(rx_stream)
+
+arrays = dict(np.load(filename+".npz", allow_pickle = True))
+arrays["times"] = TIME
+np.savez(filename, **arrays)
 
 print("Experinment ", filename, " ended")
 print("Execution time = ", time.time() - TIME[0])
