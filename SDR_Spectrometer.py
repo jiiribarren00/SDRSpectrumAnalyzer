@@ -19,25 +19,25 @@ import time
 
 
 # Maximo plazo por el que se registrarán espectros / s
-exp_time = 1*60
+exp_time = (5+12+4)*60*60
 # Ganancia [0,66]dB
-exp_gain = 40
+exp_gain = 39
 # Space to leave annotations
-annotations = ""
+annotations = "Anplificador conectado y la antena grande extendida"
 
 # Máximo periodo entre la toma de distintos espectros / s
 spec_period = 0*60
 # Numero de veces que se repetirán las medidas para obtener un espectro
-spec_repetitions = 1
+spec_repetitions = 100
 # Mínima frecuencia registrada en un espectro / Hz
 spec_min_freq = 30*1e6
 # Máxima frecuencia registrada en un espectro / Hz
 spec_max_freq = 300*1e6
 
 # Frecuencia de muestreo de la señal de radio o medio bandwith / Hz
-seg_samplerate = 5e6 #2.4*1e6
+seg_samplerate = 10e6 #2.4*1e6
 # Numero de muestras de señal de radio a tomar en una medida
-seg_sample_num = 2**12 #necesitamos 122KHz de res.
+seg_sample_num = 2**8 #necesitamos 122KHz de res.
 # Determine el numero de partes en las que se divide el segmento, se descartarán la primera y la última parte
 seg_parts = 8
 
@@ -75,9 +75,15 @@ hann = np.hanning(len(rx_buff))
 #Creamos el nombre del archivo en el que se guardarán los datos
 filename = "Exp__"+time.strftime("%Y_%m_%d__%H_%M_%S")
 
+
+
+# Tiempo de inicio de las medidas
+TIME = []
+TIME = np.append(TIME, time.time())
+
 # Creamos el archivo e incluimos la metadata del experimento en él
 np.savez(filename, Metadata = [filename, exp_time, exp_gain, spec_period, spec_repetitions, 
-      spec_min_freq, spec_max_freq, seg_samplerate, seg_sample_num, seg_parts, annotations])
+      spec_min_freq, spec_max_freq, seg_samplerate, seg_sample_num, seg_parts, annotations], times = TIME)
 
 
 #-------------------------
@@ -86,11 +92,6 @@ np.savez(filename, Metadata = [filename, exp_time, exp_gain, spec_period, spec_r
 
 # Iniciamos el contador de espectros
 i = 0
-
-
-# Tiempo de inicio de las medidas
-TIME = []
-TIME = np.append(TIME, time.time())
 
 while exp_time-(time.time()-TIME[0]) > 0:
 
@@ -107,9 +108,9 @@ while exp_time-(time.time()-TIME[0]) > 0:
 
    # Creamos un rango de frecuencias en el que se tomaran las medidas
    if seg_parts == 1:
-      spec_freq_range = np.arange(spec_min_freq, spec_max_freq, seg_samplerate)
+      spec_freq_range = np.arange(spec_min_freq, spec_max_freq+seg_samplerate/seg_sample_num, seg_samplerate)
    elif seg_parts != 2 and seg_parts != 1:
-      spec_freq_range = np.arange(spec_min_freq+seg_samplerate/seg_parts, spec_max_freq, seg_samplerate/(seg_parts-2))
+      spec_freq_range = np.arange(spec_min_freq-seg_samplerate/seg_parts, spec_max_freq+seg_samplerate/seg_sample_num, seg_samplerate*(seg_parts-2)/seg_parts)
 
    for j in range(spec_repetitions):
       
@@ -131,10 +132,7 @@ while exp_time-(time.time()-TIME[0]) > 0:
 
             rx_buff2 = rx_buff*hann
             # Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
-            if seg_parts == 1:
-               seg_power = np.abs(np.fft.fft(rx_buff2))**2 / (seg_sample_num*seg_samplerate)
-            elif seg_parts != 1 and seg_parts != 2:
-               seg_power = np.abs(np.fft.fft(rx_buff2))**2 / (seg_sample_num*seg_samplerate/(seg_parts-2))
+            seg_power = np.abs(np.fft.fft(rx_buff2))**2 / (seg_sample_num*seg_samplerate)
 
             # Pasamos la potencia a dB
             seg_power = 10.0*np.log10(seg_power)
@@ -157,7 +155,8 @@ while exp_time-(time.time()-TIME[0]) > 0:
                   if seg_parts == 1:
                      seg_freq = np.fft.fftfreq(n=seg_power.size, d=1/seg_samplerate)
                   elif seg_parts != 1 and seg_parts != 2:
-                     seg_freq = np.fft.fftfreq(n=seg_power.size, d=(seg_parts-2)/seg_samplerate)
+                     seg_freq = np.fft.fftfreq(n=seg_power.size, d=seg_parts/(seg_samplerate*(seg_parts-2)))
+                     
                   seg_freq = np.fft.fftshift(seg_freq)+seg_center_freq
                   # Agregamos las frecuencias de esta medida a las anteriores del espectro
                   spec_freq = np.concatenate((spec_freq, seg_freq))
@@ -170,6 +169,8 @@ while exp_time-(time.time()-TIME[0]) > 0:
 
    # Cargamos el archivo .npz en un diccionario
    arrays = dict(np.load(filename+".npz", allow_pickle = True))
+
+   arrays["times"] = TIME
 
    if i == 0:
       # Si estoy calculando el primer espectro del experimento, agrego antes las frecuencias
@@ -190,10 +191,6 @@ while exp_time-(time.time()-TIME[0]) > 0:
    i += 1
 
 sdr.closeStream(rx_stream)
-
-arrays = dict(np.load(filename+".npz", allow_pickle = True))
-arrays["times"] = TIME
-np.savez(filename, **arrays)
 
 print("Experinment ", filename, " ended")
 print("Execution time = ", time.time() - TIME[0])

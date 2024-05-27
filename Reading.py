@@ -58,7 +58,7 @@ while Option != 8:
          ]
 
          times["exp_init_timestamp"] = arrays["times"][0]
-         for i in range(len(arrays["times"])-1):
+         for i in range(len(arrays)-3):
             times[list(arrays.keys())[i+2]] = arrays["times"][i+1]
       
       for i in range(len(arrays["Metadata"])):
@@ -198,12 +198,14 @@ while Option != 8:
       Int = np.trapz(data.iloc[:,f_min:f_max], x=frequencies[f_min:f_max], axis=1)
 
       fig, ax = plt.subplots()
-      ax.plot(data.index.values, Int, "rx")
+      ax.plot(data.index.values, Int, "r-")
       ax.set_ylabel(r'Integrated Relative Power / $\mathrm{dB}$')
       ax.set_xlabel(r'Timestamp')
-      plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+      plt.setp(ax.get_xticklabels(), rotation=90, ha="right",
          rotation_mode="anchor")
-      ax.set_title(metadata["filename"])
+      ax.locator_params(axis='x', nbins=len(data.index.values)//4)
+   
+      ax.set_title("Integrated power between "+str(round(frequencies[f_min]/1e6))+" MHz and "+str(round(frequencies[f_max]/1e6))+" MHz for "+str(metadata["filename"]))
       plt.tight_layout()
       plt.show()
       
