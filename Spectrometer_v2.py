@@ -7,7 +7,17 @@ from time import sleep
 from tqdm import tqdm
 import pyfftw
 
-Conditions = pd.read_excel("ExperimentConditions.xlsx", index_col=0)
+DefaultDtypes = {
+   "ExperimentName":"str", "Channel":"uint8",
+   "SpecTime":"float64", "SavingFrequency":"uint16",
+   "Gain":"uint8", "SampleRate": "float64", "SpecTime": "float64",
+   "MaxFreq": "float64", "MinFreq": "float64",
+   "Spectrum Period": "float64", "Repetitions":"uint16",
+   "SegParts":"uint8"
+   
+}
+Conditions = pd.read_csv("ExperimentConditions.csv", header=1, dtype=DefaultDtypes)
+
 
 #-------------------------
 
@@ -27,21 +37,21 @@ elif len(Devices) > 1:
 
 #-------------------------
 
-GlobalInit = np.datetime64("now")
+GlobalInitTime = np.datetime64("now")
 
-for i in Conditions.index.values():
+for i in Conditions.index.values:
 
    iCond = Conditions.iloc[i]
    
    # Set sample rate
-   sdr.setSampleRate(SOAPY_SDR_RX, iCond["Channel"], iCond["SampleRate"])
+   sdr.setSampleRate(SOAPY_SDR_RX, int(iCond["Channel"]), float(iCond["SampleRate"]))
 
    # Set gain
    if iCond["Gain"] == "Auto":
-      sdr.setGainMode(SOAPY_SDR_RX, iCond["Channel"], True)
-   elif:
-      sdr.setGainMode(SOAPY_SDR_RX, iCond["Channel"], False)
-      sdr.setGain(SOAPY_SDR_RX, iCond["Channel"], iCond["Gain"])
+      sdr.setGainMode(SOAPY_SDR_RX, int(iCond["Channel"]), True)
+   else:
+      sdr.setGainMode(SOAPY_SDR_RX, int(iCond["Channel"]), False)
+      sdr.setGain(SOAPY_SDR_RX, int(iCond["Channel"]), int(iCond["Gain"]))
 
    rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
 
@@ -73,21 +83,22 @@ for i in Conditions.index.values():
    
    PSDs = pd.DataFrame(columns = spec_freq)
    
-   TIME = [np.datetime64("now")]
+   InitTime = np.datetime64("now")
+   dTimes = np.array([], dtype="timedelta64[s]")
 
    j = 0
-
-   while np.timedelta64(iCond["SpecTime"], "s") > (np.datetime64("now")-TIME[0]):
+   
+   while pd.to_timedelta(iCond["SpecTime"]) > (np.datetime64("now")-InitTime):
       
-      spec_power = np.empty(iCond["Repetitions"], dtype=object)
+      spec_power =[ [] for i in range(iCond["Repetitions"])]
       
       spec_start_time = np.datetime64("now")
             
-      for j in tqdm(range(iCond["Repetitions"]), desc= "Adquiring "+str(j+1)"th spectrum"):
+      for j in tqdm(range(iCond["Repetitions"]), desc= "Adquiring "+str(j+1)+"th spectrum"):
 
          for f in spec_central_freq:
             
-            sdr.setFrequency(SOAPY_SDR_RX, iCond["Channel"], f)
+            sdr.setFrequency(SOAPY_SDR_RX, int(iCond["Channel"]), f)
 
             CheckInf = True
 
@@ -95,7 +106,7 @@ for i in Conditions.index.values():
                # Read samples
 
                sdr.activateStream(rx_stream)
-               results = sdr.readStream(rx_stream, [rx_buff], iCond["SampleNum"])             
+               results = sdr.readStream(rx_stream, [rx_buff], int(iCond["SampleNum"]))
                sdr.deactivateStream(rx_stream)
 
                rx_buff2 = rx_buff*window
@@ -103,12 +114,16 @@ for i in Conditions.index.values():
                fft_object = pyfftw.builders.fft(rx_buff2)
                
                # Calculamos la potencia de la señal de radio a cada frecuencia y las reordenamos
-               seg_power = np.abs(fft_object()b)**2 / (iCond["SampleNum"]*iCond["SampleRate"])
+               seg_power = np.abs(fft_object())**2 / (iCond["SampleNum"]*iCond["SampleRate"])
 
-               # Pasamos la potencia a dB
-               seg_power = 10.0*np.log10(seg_power)
+               if np.all(seg_power):
+                  # Pasamos la potencia a dB
+                  seg_power = 10.0*np.log10(seg_power)
 
-               CheckInf=np.isinf(seg_power).any()
+                  CheckInf=np.isinf(seg_power).any()
+               else:
+                  CheckInf = True
+               
 
                if(not(CheckInf)):
 
@@ -121,23 +136,23 @@ for i in Conditions.index.values():
                   # Agregamos las potencias de esta medida al espectro
                   spec_power[j] = np.concatenate((spec_power[j], seg_power))
 
-      TIME = np.append(TIME, np.datetime64("now")-spec_start_time)
+      dTimes = np.append(dTimes, np.datetime64("now")-spec_start_time)
 
-      PSDs.loc[spec_start_time+TIME[-1]/2] = np.mean(spec_power, axis=1)
+      PSDs.loc[spec_start_time+dTimes[-1]/2] = np.mean(spec_power, axis=1)
       
       if j % iCond["Saving Frequency"] == 0:
          SF = sf.Frame.from_pandas(PSDs)
-         SF.to_npz("/"+np.datetime_as_string(GlobalInit, timezone='UTC')+
+         SF.to_npz("/"+np.datetime_as_string(GlobalInitTime, timezone='UTC')+
                    "/"+str(iCond["ExperimentName"]))
          del SF
          
-         np.save(TIME[-1:], "/"+np.datetime_as_string(GlobalInit, timezone='UTC')+
-                            "/"+str(iCond["ExperimentName"]))
+         np.save(dTimes, "/"+np.datetime_as_string(GlobalInitTime, timezone='UTC')+
+                         "/"+str(iCond["ExperimentName"]))
          
       if np.timedelta64("now") - spec_start_time < iCond["Spectrum Period"]:
          # Si el tiempo que se tardo en tomar el último espectro es menor a spec_period,
          # esperamos ese tiempo
-         sleep(iCond["Spectrum Period"] - (np.timedelta64("now") - spec_start_time))
+         sleep(iCond["Spectrum Period"] - (np.datetime64("now") - spec_start_time).seconds)
 
       j += 1
 
