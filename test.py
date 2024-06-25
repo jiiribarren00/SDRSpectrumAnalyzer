@@ -13,7 +13,7 @@ for result in results: print(result)
 
 #create device instance
 #args can be user defined or from the enumeration result
-sdr = SoapySDR.Device(dict(driver="sdrplay"))
+sdr = SoapySDR.Device(dict(driver=results[0]["driver"]))
 
 #query device info
 print("\nList device's antennas: ",sdr.listAntennas(SOAPY_SDR_RX, 0))
