@@ -19,23 +19,23 @@ import time
 
 
 # Maximo plazo por el que se registrarán espectros / s
-exp_time = (5+12+4)*60*60
+exp_time = 1*60*60
 # Ganancia [0,66]dB
-exp_gain = 39
+exp_gain = 30
 # Space to leave annotations
-annotations = "Anplificador conectado y la antena grande extendida"
+annotations = "Resultados para RAFA con el dongle simple "
 
 # Máximo periodo entre la toma de distintos espectros / s
 spec_period = 0*60
 # Numero de veces que se repetirán las medidas para obtener un espectro
-spec_repetitions = 100
+spec_repetitions = 10
 # Mínima frecuencia registrada en un espectro / Hz
 spec_min_freq = 30*1e6
 # Máxima frecuencia registrada en un espectro / Hz
 spec_max_freq = 300*1e6
 
 # Frecuencia de muestreo de la señal de radio o medio bandwith / Hz
-seg_samplerate = 10e6 #2.4*1e6
+seg_samplerate = 2.4e6 #2.4*1e6
 # Numero de muestras de señal de radio a tomar en una medida
 seg_sample_num = 2**8 #necesitamos 122KHz de res.
 # Determine el numero de partes en las que se divide el segmento, se descartarán la primera y la última parte
@@ -61,8 +61,7 @@ elif len(Devices) > 1:
 sdr.setSampleRate(SOAPY_SDR_RX, 0, seg_samplerate)
 
 # Set gain
-sdr.setGainMode(SOAPY_SDR_RX, 0, False)  # Enable AGC
-sdr.setGain(SOAPY_SDR_RX, 0, exp_gain)   # Set gain value
+sdr.setGainMode(SOAPY_SDR_RX, 0, False)  # Disable AGC
 
 rx_stream = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
 
@@ -120,6 +119,9 @@ while exp_time-(time.time()-TIME[0]) > 0:
       
          # Tune to center frequency
          sdr.setFrequency(SOAPY_SDR_RX, 0, seg_center_freq)
+         
+
+         sdr.setGain(SOAPY_SDR_RX, 0, exp_gain)   # Set gain value
 
          CheckInf = True
          
@@ -138,6 +140,9 @@ while exp_time-(time.time()-TIME[0]) > 0:
             seg_power = 10.0*np.log10(seg_power)
    
             CheckInf=np.isinf(seg_power).any()
+            
+            if CheckInf:
+               print("Segment discarded")
    
             if(not(CheckInf)):
                
