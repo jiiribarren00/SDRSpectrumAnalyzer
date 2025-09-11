@@ -2,6 +2,7 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import re
 #import seaborn as sn
 
 
@@ -29,10 +30,10 @@ print("\n_______________________________________________________________________
        "This file reads the data from the Exp file and can express it in several ways.\n"
 )
 
-Option = 7
+Option = 8
 
-while Option != 8:
-   if Option == 7:
+while Option != 9:
+   if Option == 8:
       path = str(input("\n Enter the Exp file's path: "))
 
       arrays = dict(np.load(path, allow_pickle=True))
@@ -88,9 +89,11 @@ while Option != 8:
          "[2] Plot all spectrums in an animation.\n" +
          "[3] Plot waterfall (a.k.a. heatmap).\n" +
          "[4] Plot the integrated power density of a frequency range over time.\n" +
-         "[5] Print a single spectrum in the terminal.\n" +
-         "[6] Print metadata and frequencies in the terminal.\n" +
-         "[7] Change the Exp file.\n" + "[8] Exit.\n")
+         "[5] Export data to CSV."
+         "[6] Print a single spectrum in the terminal.\n" +
+         "[7] Print metadata and frequencies in the terminal.\n" +
+         "[8] Change the Exp file.\n" +
+         "[9] Exit.\n")
    
    Option = int(input("Enter the number of the option you want to choose: "))
    
@@ -195,7 +198,7 @@ while Option != 8:
          f_max = float(input("Enter the top frequency: "))
          f_max = closest(f_max*1e6, frequencies)
 
-      Int = np.trapz(data.iloc[:,f_min:f_max], x=frequencies[f_min:f_max], axis=1)
+      Int = np.trapezoid(data.iloc[:,f_min:f_max], x=frequencies[f_min:f_max], axis=1)
 
       fig, ax = plt.subplots()
       ax.plot(data.index.values, Int, "r-")
@@ -210,6 +213,38 @@ while Option != 8:
       plt.show()
       
    if Option == 5:
+      
+      print("You have chosen to export the DataFrame to CSV.\n")
+      fname = metadata["filename"]
+      match = re.search(r"Exp__(\d{4})_(\d{2})_(\d{2})__(\d{2})_(\d{2})_(\d{2})", fname)
+      if match:
+         exp_start = pd.Timestamp(*map(int, match.groups()))
+         day0 = exp_start.normalize()
+
+         time_strings = data.index.astype(str).str.replace("-", ":")
+         time_offsets = pd.to_timedelta(time_strings, errors="coerce")
+
+         base_ts = day0 + time_offsets
+
+         s = pd.Series(base_ts)
+         wraps = s.diff().dt.total_seconds() < 0
+         day_adds = wraps.fillna(False).astype(int).cumsum()
+
+         final_index = pd.DatetimeIndex(base_ts + pd.to_timedelta(day_adds, unit="D"))
+         data.index = final_index
+         
+      default_name = metadata["filename"] + ".csv"
+      
+      out_path = input(f"Enter output CSV file path (default: {default_name}): ")
+      
+      if out_path.strip() == "":
+         out_path = default_name
+
+      # Guardar con índice datetime64
+      data.to_csv(out_path, index_label="Timestamp")
+      print(f"\nData successfully exported to {out_path}\n")
+      
+   if Option == 6:
       print("You have chosen to print a single spectrum in the terminal.\n")
       print("Choose the spectrum you want to print.\n")
       print(
@@ -219,15 +254,16 @@ while Option != 8:
       selection = closest_time(selection, data.index.values)
       print("\nThe closest time is " + str(data.index.values[selection]))
       print("\nThw corresponding sprectrum is:\n", data.iloc[selection,:])
-
-   if Option == 6:
+      
+   if Option == 7:
       print("You have chosen to print the metadata and frequencies in the terminal.\n")
       print(metadata)
       print(frequencies)
       print(times)
-   if Option == 7:
-      Option = 7
-
+      
    if Option == 8:
       Option = 8
+
+   if Option == 9:
+      Option = 9
       print("Thanks for using SDRSpectrumAnalyzer!")
