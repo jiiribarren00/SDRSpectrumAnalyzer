@@ -6,24 +6,39 @@ import re
 #import seaborn as sn
 
 
+def _ensure_timedelta(val):
+    """Convierte strings 'HH-MM-SS' o ya timedelta64/pd.Timedelta a np.timedelta64."""
+    if isinstance(val, str):
+        val = val.replace("-", ":")
+        return pd.to_timedelta(val)
+    elif isinstance(val, (np.timedelta64, pd.Timedelta)):
+        return np.timedelta64(val)
+    else:
+        raise TypeError(f"Formato no soportado: {type(val)}")
+
+
 def closest_time(x, v):
-   a = []
-   i = 0
-   for vi in v:
-      vi = [float(y) for y in vi.split('-')]
-      a = np.append(a, np.sum(np.multiply(vi, [1, 1 / 60, 1 / 3600])))
-      while a[i] < a[i - 1]:
-         a[i] = a[i] + 24
-      i = i + 1
-   x = np.sum(
-       np.multiply([float(y) for y in x.split('-')], [1, 1 / 60, 1 / 3600]))
-   a = np.abs(a - x)
-   return np.argmin(a)
+    """
+    Devuelve el índice del valor en v cuya diferencia absoluta con x es mínima.
+    Acepta strings 'HH-MM-SS' o timedelta64.
+    """
+    # Convertir x
+    x = _ensure_timedelta(x)
+
+    # Convertir v a np.array de timedelta64
+    v = np.array([_ensure_timedelta(vi) for vi in v], dtype="timedelta64[ns]")
+
+    diffs = np.abs(v - x)
+    return int(np.argmin(diffs))
 
 
 def closest(x, v):
-   a = [np.abs(vi - x) for vi in v]
-   return np.argmin(a)
+   """
+   Devuelve el índice del valor en v (array de float64) más cercano a x.
+   """
+   v = np.asarray(v, dtype=float)
+   diffs = np.abs(v - float(x))
+   return int(np.argmin(diffs))
 
 
 print("\n_____________________________________________________________________________\n",
@@ -74,22 +89,69 @@ while Option != 9:
       del arrays["times"], a, arrays["Metadata"], arrays["frequencies"]
 
       data = pd.DataFrame.from_dict(arrays, orient="index", columns=frequencies)
+      
+      data.columns = np.array(data.columns, dtype= float)
+            
+      # ------------------ Detectar y convertir índices 'HH-MM-SS' a datetime64 ------------------
+      idx_as_str = data.index.astype(str)
+
+      # comprobamos si *todos* los índices tienen el formato 'HH-MM-SS' (acepta opcionalmente .sss)
+      is_hhmmss = idx_as_str.str.match(r'^\d{2}-\d{2}-\d{2}(?:\.\d+)?$').all()
+
+      if is_hhmmss:
+         # parsear fecha/hora desde metadata['filename']
+         fname = metadata.get("filename", "")
+         m = re.search(r"Exp__(\d{4})_(\d{2})_(\d{2})__(\d{2})_(\d{2})_(\d{2})", fname)
+         if not m:
+            raise ValueError(f"Formato inesperado en filename: {fname!r}")
+
+         exp_start = pd.Timestamp(*map(int, m.groups()))
+         day0 = exp_start.normalize()   # midnight del día del experimento
+
+         # convertir 'HH-MM-SS' -> 'HH:MM:SS' y luego a Timedelta
+         time_strings = idx_as_str.str.replace("-", ":")
+         time_offsets = pd.to_timedelta(time_strings, errors="coerce")
+
+         if time_offsets.isna().any():
+            bad = list(data.index[time_offsets.isna()])[:10]
+            raise ValueError(f"Algunos índices no pudieron convertirse a HH:MM:SS. Ejemplos: {bad}")
+
+         # Timestamps asumiendo el mismo día
+         base_ts = day0 + time_offsets
+
+         # --- nueva y más robusta detección de 'wrap' (cruce de medianoche) ---
+         # calculamos segundos desde medianoche (float)
+         seconds = (time_offsets / pd.Timedelta(1, "s")).astype(float)
+
+         # wrap[i] = True cuando seconds[i] < seconds[i-1] --> eso indica paso a siguiente día
+         if len(seconds) > 1:
+            wraps_bool = np.concatenate(([False], seconds[1:] < seconds[:-1]))
+         else:
+            wraps_bool = np.array([False])
+
+         day_adds = np.cumsum(wraps_bool.astype(int))  # 0,0,...,1,1,...,2,...
+
+         final_index = pd.DatetimeIndex(base_ts + pd.to_timedelta(day_adds, unit="D"))
+         data.index = final_index
+      # si no son HH-MM-SS no se toca el índice
+      # ----------------------------------------------------------------------------------------
+
 
       print("\nThe Exp file named " + str(metadata["filename"]) +
             " was loaded correctly.")
       print("\nIt contains " + str(len(data)) + " spectrums from " +
             str(metadata["spec_min_freq"] / 1e6) + " MHz to " +
             str(metadata["spec_max_freq"] / 1e6) + " MHz.\n")
-      print("\nThese are the timestamps of each one: \n", data.index.values)
-      if len(metadata) == 10:
-         print("\nConsider following anotations;",metadata["annotations"])
+      print("\nThese are the timestamps of each one: \n", data.index)
+      if len(metadata) == 11:
+         print("\nConsider following anotations:",metadata["annotations"])
    
    print("\nNow, choose the way you want show the data.\n" +
          "[1] Plot a single spectrum.\n" +
          "[2] Plot all spectrums in an animation.\n" +
          "[3] Plot waterfall (a.k.a. heatmap).\n" +
          "[4] Plot the integrated power density of a frequency range over time.\n" +
-         "[5] Export data to CSV."
+         "[5] Export data to CSV.\n"
          "[6] Print a single spectrum in the terminal.\n" +
          "[7] Print metadata and frequencies in the terminal.\n" +
          "[8] Change the Exp file.\n" +
@@ -111,14 +173,28 @@ while Option != 9:
            horizontalalignment='center',
            verticalalignment='center',
            transform=ax.transAxes)
+         
       elif len(data) != 1:
-         print("Choose the spectrum you want to plot.\n")
-         print(
-            "Enter the timestamp with format 'hh-mm-ss' and the closest time will be displayed. Days are considered adding 24 h.\n"
-         )
-         selection = input("Enter the timestamp correctly formatted: ")
-         selection = closest_time(selection, data.index.values)
-         print("\nThe closest time is " + str(data.index.values[selection]))
+         # Mostrar las fechas disponibles
+         available_days = pd.to_datetime(data.index.normalize().unique())
+         print("\nAvailable dates in this experiment:")
+         for d in available_days:
+            print(" -", d.date())
+
+         # Elegir fecha
+         day_choice = pd.to_datetime(input("\nEnter the date you want (YYYY-MM-DD): ")).normalize()
+
+         # Filtrar datos de ese día
+         mask = data.index.normalize() == day_choice
+         day_data = data.loc[mask]
+
+         # Elegir hora
+         time_choice = input("Enter the time (HH:MM:SS or HH,MM,SS): ").replace(",", ":")
+         td_choice = pd.to_timedelta(time_choice)
+
+         # Buscar índice más cercano
+         selection = closest_time(td_choice, day_data.index - day_choice)
+         print("\nThe closest timestamp is:", day_data.index[selection])
          
          ax.fill_between(frequencies / 1e6, data.iloc[selection,:].values)
          ax.text(0.5,
@@ -165,11 +241,12 @@ while Option != 9:
       print("You have chosen to plot the waterfall of the spectrums.\n")
 
       fig, ax = plt.subplots()
-      ax.pcolor(data.columns.values/1e6, data.index.values, data.values, cmap ='viridis')
+      C = ax.pcolor(data.columns.values/1e6, data.index.values, data.values, cmap ='viridis')
       ax.set_xlabel(r'Frequency / $\mathrm{MHz}$')
       plt.setp(ax.get_xticklabels(), rotation=90, ha="right",
          rotation_mode="anchor")
       ax.set_ylabel('Time')
+      fig.colorbar(C, ax=ax)
       plt.show()
       
       
@@ -215,23 +292,6 @@ while Option != 9:
    if Option == 5:
       
       print("You have chosen to export the DataFrame to CSV.\n")
-      fname = metadata["filename"]
-      match = re.search(r"Exp__(\d{4})_(\d{2})_(\d{2})__(\d{2})_(\d{2})_(\d{2})", fname)
-      if match:
-         exp_start = pd.Timestamp(*map(int, match.groups()))
-         day0 = exp_start.normalize()
-
-         time_strings = data.index.astype(str).str.replace("-", ":")
-         time_offsets = pd.to_timedelta(time_strings, errors="coerce")
-
-         base_ts = day0 + time_offsets
-
-         s = pd.Series(base_ts)
-         wraps = s.diff().dt.total_seconds() < 0
-         day_adds = wraps.fillna(False).astype(int).cumsum()
-
-         final_index = pd.DatetimeIndex(base_ts + pd.to_timedelta(day_adds, unit="D"))
-         data.index = final_index
          
       default_name = metadata["filename"] + ".csv"
       
