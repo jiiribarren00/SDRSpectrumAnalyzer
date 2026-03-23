@@ -10,9 +10,10 @@ A Python library for analyzing the VHF radio spectrum using low-cost SDR devices
 There exist some libraries needed to use SDRSpectrumAnalyzer.
 Some of them are common and you may already have them installed in your system `numpy`, `matplotlib`, `pandas` and `seaborn`.
 
-You may have not installed `rtl-sdr` library yet. In this case use `pip install pyrtlsdr` or visit [PyPI](https://pypi.org/project/pyrtlsdr/).
-When using this library, you will need special drivers for your SDR - Oporative Systems usually installs some DVB drivers which are not suitable
-for us -, those from [RTL-SDR](https://www.rtl-sdr.com). Follow these steps to install:
+You may have not installed yet libraries related to SDRs. This repository relies on [Soapy SDR](https://github.com/pothosware/SoapySDR/wiki), it's [Python Module](https://github.com/pothosware/SoapySDR/wiki/PythonSupport) and corresponding drivers modules (in oue case we tested [RTL-SDR Module](https://github.com/pothosware/SoapyRTLSDR/wiki) and [SDRPlay Module](https://github.com/pothosware/SoapySDRPlay3/wiki) ).
+
+You will need the original drivers for your SDR - Oporative Systems usually installs some DVB drivers which are not suitable
+for us -. We have tested those from [RTL-SDR](https://www.rtl-sdr.com) and [SDRPlay](https://www.sdrplay.com/api/). As an example, these are the installation steps in Linux for RTL-SDR, which can also be found in the website:
   
   1. Delete older drivers:
 
@@ -62,8 +63,6 @@ frequencies and a timelapsed psd for specified portion of VHF spectrum. The othe
 
 * In development
 
-	- [ ] Rewriting the code from SoapySDR, this library allows user to get samples from devices other than Rtl-Sdr.
-
 * In a close future
 
 	- [ ] Study samples, gain, windowing functions and possible optimizations.
@@ -77,7 +76,6 @@ frequencies and a timelapsed psd for specified portion of VHF spectrum. The othe
 
 ## Contributing
 
-The project is currently too young, hence we won't require any additional contributions.
 If there are new ideas or recommendations, please contact Juan I. Iribarren at [juan.iribarren@fisica.unlp.edu.ar](mailto:juan.iribarren@fisica.unlp.edu.ar) .
 
 ## License
